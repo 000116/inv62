@@ -1,0 +1,53 @@
+# Environments
+.venv/
+venv/
+env/
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.egg-info/
+build/
+dist/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Caches / test artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# App-generated / runtime data
+embeddings_cache.pkl
+learned_rules.json
+output/
+catboost_info/
+reports/
+training_reports/
+*.log
+
+# Datasets, trained models & large binary artifacts
+*.csv
+*.xlsx
+*.pkl
+*.bin
+*.pt
+*.gguf
+*.safetensors
+models/
+
+# Secrets / credentials
+*.pem
+*.key
+credentials.json
