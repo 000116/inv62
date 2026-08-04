@@ -22,7 +22,6 @@
 - [CLI Araçları](#cli-araçları)
 - [Performans ve Sonuçlar](#performans-ve-sonuçlar)
 - [Bilinen Sınırlamalar](#bilinen-sınırlamalar)
-- [Lisans](#lisans)
 
 ---
 
@@ -157,7 +156,7 @@ flowchart LR
     PIPE --> LOCAL["core/local_translator.py<br/>+ local_prompts.py"]
     PIPE -.yükler.-> MODEL[("smart_router_model_v5.pkl")]
 
-    ML["ml/train_router.py<br/>çevrimdışı · ayrı süreç"] -.eğitir / üretir.-> MODEL
+    ML["ml/train_router.py<br/>çevrimdışı · ayrı süreç"] -.üretir.-> MODEL
 
     LOCAL --> G["llm/gemini.py"]
     LOCAL --> LL["llm/llama.py"]
@@ -207,59 +206,42 @@ flowchart LR
 
 ## Örnek Çeviri
 
-<!--
-TODO — Bu örnekteki Oracle girdisi geçerli Oracle SQL değildir: Oracle'da PIVOT
-bir tablo ifadesidir ve FROM yan tümcesinde yer alır; GROUP BY'dan sonra
-gelemez, ayrıca aynı SELECT listesinde tanımlanan bir alias'a (total_salary)
-referans veremez. Vitrin örneği olarak geçerli bir Oracle PIVOT sorgusu
-pipeline'dan geçirilip bu bölüm gerçek çıktısıyla değiştirilmelidir.
--->
-
-Aşağıdaki örnek gerçek bir pipeline çalıştırmasından alınmıştır (`core/pipeline.py` → `process_query()`). Sorgu `PIVOT` içerdiği için kural motoru bunu deterministik olarak çözemez ve `check_unsupported()` doğrudan `LLM_NEEDED` döndürerek Smart Router'a yönlendirir; Smart Router da sorguyu Gemini'ye atamıştır.
+Aşağıdaki örnek gerçek bir pipeline çalıştırmasından alınmıştır (`core/pipeline.py` → `process_query()`) ve uygulamanın kendi "Örnek Sorgular" listesindeki geçerli PIVOT örneğiyle birebir aynıdır — Streamlit arayüzünde sidebar'dan tek tıkla tekrar üretilebilir. Sorgu `PIVOT` içerdiği için kural motoru bunu deterministik olarak çeviremez; `check_unsupported()` doğrudan `LLM_NEEDED` döndürerek Smart Router'a yönlendirir, Smart Router da sorguyu Gemini'ye atamıştır.
 
 **Girdi — Oracle**
 
 ```sql
-SELECT department_id, job_id, SUM(salary) AS total_salary
-FROM employees
-WHERE hire_date > SYSDATE - 180
-GROUP BY department_id, job_id
-PIVOT (
-  SUM(total_salary) FOR job_id IN ('IT_PROG' AS IT, 'SA_REP' AS SALES)
+SELECT * FROM (
+  SELECT department_id, job_id, salary
+  FROM employees
 )
+PIVOT (
+  AVG(salary) FOR job_id IN ('IT_PROG','SA_REP')
+);
 ```
 
 **Çıktı — PostgreSQL**
 
 ```sql
-WITH base_data AS (
-    SELECT
-        department_id,
-        job_id,
-        SUM(salary) AS total_salary
-    FROM
-        employees
-    WHERE
-        hire_date > CURRENT_TIMESTAMP - INTERVAL '180 days'
-    GROUP BY
-        department_id,
-        job_id
+WITH pivoted_data AS (
+  SELECT department_id, job_id, salary
+  FROM employees
 )
 SELECT
-    department_id,
-    SUM(CASE WHEN job_id = 'IT_PROG' THEN total_salary ELSE NULL END) AS IT,
-    SUM(CASE WHEN job_id = 'SA_REP' THEN total_salary ELSE NULL END) AS SALES
+  department_id,
+  AVG(CASE WHEN job_id = 'IT_PROG' THEN salary END) AS IT_PROG,
+  AVG(CASE WHEN job_id = 'SA_REP' THEN salary END) AS SA_REP
 FROM
-    base_data
+  pivoted_data
 GROUP BY
-    department_id;
+  department_id;
 ```
 
-| Track | Kaynak | Syntax | Semantik | Maliyet |
-|---|---|---|---|---|---|
-| `deep_direct` | `gemini` | ✔ OK | ✔ OK | $0.00102 |
+| Track | Kaynak | Syntax | Semantik | Çeviri Maliyeti (Gemini) | Semantik Maliyet (Azure) | Süre |
+|---|---|---|---|---|---|---|
+| `deep_direct` | `gemini` | ✔ OK | ✔ OK | $0.00000 | $0.00070 | 24.2s |
 
-> **Maliyet takibi hakkında:** `total_cost` yalnızca Azure OpenAI çağrılarının (bu örnekte semantik doğrulama) $ maliyetini yansıtır. Gemini ve yerel LLM çağrılarının kendi API maliyeti bu bütçe sistemine dahil **değildir** — bkz. [Bilinen Sınırlamalar](#bilinen-sınırlamalar).
+> **Maliyet takibi hakkında:** Bütçe sistemi yalnızca **Azure OpenAI** çağrılarını $ olarak sayar. Bu örnekte çeviriyi yapan Gemini'nin kendi API maliyeti bütçeye hiç yansımaz (`$0.00000` "izlenmiyor" demektir, "ücretsiz" demek değildir — Gemini tarafında ayrıca kendi kotanız/faturalandırmanız işler). Tablodaki tek $ değeri, çeviri sonrası çalışan Azure semantik doğrulama adımına aittir. Detay için bkz. [Bilinen Sınırlamalar](#bilinen-sınırlamalar).
 
 ---
 
@@ -406,7 +388,7 @@ Yayınlanan `smart_router_model_v5.pkl` dosyasına gömülü metadata'dan okunan
 python ml/train_router.py
 ```
 
-<!-- TODO: Script argüman alıyor mu (veri seti yolu, çıktı yolu)? Alıyorsa örnek komut güncellenecek. -->
+CLI argümanı almaz — veri seti yolu (`DATASET_FILE`), rapor dizini (`REPORTS_DIR`) ve model çıktı yolu (`MODEL_OUTPUT`) dosyanın en üstündeki sabitler olarak tanımlıdır, gerekirse elle düzenlenir.
 
 > Model dosyası bulunamazsa sistem hata vermeden regex tabanlı pattern-matching mantığına düşer; Smart Router her koşulda çalışmaya devam eder.
 
@@ -483,7 +465,7 @@ python scripts/legacy_pipeline.py
 
 ### Canlı pipeline — tekil çalıştırma
 
-[Örnek Çeviri](#örnek-çeviri) bölümündeki tek `process_query()` çağrısı: `deep_direct` track, `gemini` kaynak, syntax + semantik OK, $0.00102 maliyet. Tek bir örnek genel performans göstergesi değildir; yalnızca pipeline'ın uçtan uca çalıştığını gösterir.
+[Örnek Çeviri](#örnek-çeviri) bölümündeki tek `process_query()` çağrısı: `deep_direct` track, `gemini` kaynak, syntax + semantik OK, 24.2s; bütçeye yansıyan tek maliyet Azure semantik doğrulamasına ait $0.00070 (Gemini çevirisinin kendi maliyeti izlenmiyor). Tek bir örnek genel performans göstergesi değildir; yalnızca pipeline'ın uçtan uca çalıştığını gösterir.
 
 ---
 
@@ -496,9 +478,3 @@ python scripts/legacy_pipeline.py
 - Sözdizimi doğrulaması yalnızca üretilen PostgreSQL çıktısına uygulanır; girdi olarak verilen Oracle sorgusunun geçerliliği ayrıca denetlenmez.
 - Bütçe sistemi ($ takibi, limit kontrolü) yalnızca **Azure OpenAI** çağrılarını ölçer. Smart Router bir sorguyu Gemini'ye veya yerel bir modele yönlendirdiğinde, o çağrının kendi maliyeti arayüzdeki bütçeye yansımaz.
 - Smart Router modeli görece küçük ve dengesiz bir veri seti üzerinde eğitilmiştir; yönlendirme kararları veri setinde temsil edilmeyen sorgu tipleri için isabetsiz olabilir.
-
----
-
-## Lisans
-
-Bu proje özel-kurumsal lisans kapsamındadır. Kaynak kodun kullanımı, kopyalanması, değiştirilmesi veya dağıtılması için hak sahibinden önceden yazılı izin alınması gerekir.
