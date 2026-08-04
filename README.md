@@ -320,7 +320,6 @@ Proje kök dizininde bir `.env` dosyası aşağıdaki değişkenleri içermelidi
 
 Token maliyeti `core/pipeline.py` içinde **kodda sabittir** (`PRICE_INPUT = 0.15`, `PRICE_OUTPUT = 0.60`, $/1M token) ve yalnızca Azure OpenAI çağrılarını kapsar.
 
-`.env` dosyasında görülebilecek `FIYAT_PROMPT_PER_MILLION`, `FIYAT_COMPLETION_PER_MILLION` ve `MAKSIMUM_BUTCE_USD` değişkenleri **kod tarafından hiçbir yerde okunmaz**; geçmişten kalma, şu an etkisiz değişkenlerdir ve `.env.example` içinde yer almazlar. Bütçe limiti kod içinde değil, Streamlit arayüzünün "Bütçe" panelinden ($ cinsinden, varsayılan 0.80) belirlenir.
 
 ### LM Studio (yerel modeller)
 
