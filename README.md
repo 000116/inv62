@@ -311,10 +311,15 @@ Proje kök dizininde bir `.env` dosyası aşağıdaki değişkenleri içermelidi
 | `AZURE_OPENAI_ENDPOINT` | ✅ | Azure OpenAI kaynağının uç nokta URL'i |
 | `AZURE_DEPLOYMENT_NAME` | ✅ | Azure OpenAI deployment adı (hem çeviri hem semantik doğrulama için kullanılır) |
 | `GEMINI_API_KEY` | ⬜ | Google Gemini API anahtarı (Smart Router `gemini` etiketini seçtiğinde kullanılır) |
+| `SCHEMA_PATH` | ⬜ | Kullanılacak şema dosyasının yolu (varsayılan `schema.json`) |
 
 > Azure OpenAI erişimi statik API anahtarı ile değil, `AzureCliCredential` üzerinden yapılır — makinede `az login` ile giriş yapılmış olması gerekir.
 >
 > `.env` dosyası `.gitignore` içinde olduğu için repoya dahil edilmez; şablonu `.env.example` dosyasındadır. Teslim sırasında gerçek `.env` içeriği ayrıca paylaşılmalıdır.
+
+### Public/demo dağıtımı — `demo/schema.json`
+
+Gerçek `schema.json` kurumsal tablo/sütun adları içerir. Public bir ortama (ör. Streamlit Community Cloud) dağıtırken bunun yerine `demo/schema.json` kullanılabilir — Oracle'ın herkese açık örnek şemasına (`EMPLOYEES`, `DEPARTMENTS`, `ORDERS`) dayanır ve zaten uygulamanın kendi "Örnek Sorgular" listesindeki sorgularla birebir uyumludur. Etkinleştirmek için `SCHEMA_PATH=demo/schema.json` ortam değişkenini ayarlamak yeterli; ayarlanmazsa sistem otomatik olarak gerçek `schema.json`'ı kullanmaya devam eder. Gerçek dosyaya hiçbir şekilde dokunulmaz, `demo/` klasörü istenirse tamamen silinebilir.
 
 ### Fiyatlandırma ve bütçe
 
