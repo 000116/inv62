@@ -477,4 +477,3 @@ python scripts/legacy_pipeline.py
 - Çeviri sonuçları hedef veritabanında **çalıştırılarak** doğrulanmaz; doğrulama parser (syntax) ve LLM (semantik) düzeyindedir.
 - Sözdizimi doğrulaması yalnızca üretilen PostgreSQL çıktısına uygulanır; girdi olarak verilen Oracle sorgusunun geçerliliği ayrıca denetlenmez.
 - Bütçe sistemi ($ takibi, limit kontrolü) yalnızca **Azure OpenAI** çağrılarını ölçer. Smart Router bir sorguyu Gemini'ye veya yerel bir modele yönlendirdiğinde, o çağrının kendi maliyeti arayüzdeki bütçeye yansımaz.
-- Smart Router modeli görece küçük ve dengesiz bir veri seti üzerinde eğitilmiştir; yönlendirme kararları veri setinde temsil edilmeyen sorgu tipleri için isabetsiz olabilir.
