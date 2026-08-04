@@ -1,0 +1,33 @@
+{
+  "PUBLIC": {
+    "EMPLOYEES": {
+      "columns": {
+        "EMPLOYEE_ID": { "pg_type": "NUMERIC" },
+        "FIRST_NAME": { "pg_type": "VARCHAR(50)" },
+        "LAST_NAME": { "pg_type": "VARCHAR(50)" },
+        "HIRE_DATE": { "pg_type": "DATE" },
+        "SALARY": { "pg_type": "NUMERIC" },
+        "DEPT_ID": { "pg_type": "NUMERIC" },
+        "DEPARTMENT_ID": { "pg_type": "NUMERIC" },
+        "MANAGER_ID": { "pg_type": "NUMERIC" },
+        "JOB_ID": { "pg_type": "VARCHAR(20)" }
+      },
+      "pk": ["EMPLOYEE_ID"]
+    },
+    "DEPARTMENTS": {
+      "columns": {
+        "DEPT_ID": { "pg_type": "NUMERIC" },
+        "DEPT_NAME": { "pg_type": "VARCHAR(100)" }
+      },
+      "pk": ["DEPT_ID"]
+    },
+    "ORDERS": {
+      "columns": {
+        "ORDER_ID": { "pg_type": "NUMERIC" },
+        "AMOUNT": { "pg_type": "NUMERIC" },
+        "STATUS": { "pg_type": "VARCHAR(20)" }
+      },
+      "pk": ["ORDER_ID"]
+    }
+  }
+}

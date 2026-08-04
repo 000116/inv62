@@ -53,7 +53,7 @@ AZURE_API_VER    = "2025-01-01-preview"
 DEPLOYMENT_MODEL = os.environ.get("AZURE_DEPLOYMENT_NAME")
 
 ML_MODEL_PATH = "smart_router_model_v5.pkl"
-DEFAULT_SCHEMA = "schema.json"
+DEFAULT_SCHEMA = os.environ.get("SCHEMA_PATH", "schema.json")
 
 PRICE_INPUT  = 0.15
 PRICE_OUTPUT = 0.60
