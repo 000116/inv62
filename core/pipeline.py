@@ -6,6 +6,7 @@ import json
 import time
 import pickle
 import importlib
+import warnings
 
 try:
     from dotenv import load_dotenv
@@ -52,7 +53,8 @@ AZURE_ENDPOINT   = os.environ.get("AZURE_OPENAI_ENDPOINT")
 AZURE_API_VER    = "2025-01-01-preview"
 DEPLOYMENT_MODEL = os.environ.get("AZURE_DEPLOYMENT_NAME")
 
-ML_MODEL_PATH = "smart_router_model_v5.pkl"
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ML_MODEL_PATH = os.path.join(PROJECT_ROOT, "smart_router_model_v5.pkl")
 DEFAULT_SCHEMA = os.environ.get("SCHEMA_PATH", "schema.json")
 
 PRICE_INPUT  = 0.15
@@ -294,30 +296,64 @@ def _extract_features(sql: str) -> dict:
         'rule_pattern_count': sum(1 for p in RULE_P if re.search(p, s, re.DOTALL)),
         'sqlcoder_pattern_count': sum(1 for p in SQLCODER_P if re.search(p, s, re.DOTALL)),
         'gemini_pattern_count': sum(1 for p in GEMINI_P if re.search(p, s, re.DOTALL)),
-        'gpt_pattern_count': sum(1 for p in GPT_P if re.search(p, s, re.DOTALL)),
+        # Keep this name identical to ml/train_router.py and the feature contract
+        # stored in smart_router_model_v5.pkl.  The previous
+        # ``gpt_pattern_count`` name made DataFrame column selection fail and
+        # silently forced every request onto the regex router fallback.
+        'human_review_pattern_count': sum(1 for p in GPT_P if re.search(p, s, re.DOTALL)),
     }
+
+def _feature_frame(sql: str, feature_cols):
+    """Build the router input while remaining compatible with older artifacts."""
+    feats = _extract_features(sql)
+
+    # Backward compatibility for a model that may have been trained while the
+    # live pipeline used the old feature name.
+    if 'gpt_pattern_count' in feature_cols:
+        feats['gpt_pattern_count'] = feats['human_review_pattern_count']
+
+    missing = [col for col in feature_cols if col not in feats]
+    if missing:
+        raise ValueError(
+            "ML Router feature contract mismatch. Missing columns: "
+            + ", ".join(missing)
+        )
+
+    return pd.DataFrame([feats], columns=feature_cols)
 
 def load_ml_router(path: str = ML_MODEL_PATH) -> tuple:
     if not os.path.exists(path):
+        warnings.warn(f"ML Router model file not found: {path}", RuntimeWarning)
         return None, None
     try:
         with open(path, "rb") as f:
             data = pickle.load(f)
-        return data["model"], data["feature_cols"]
-    except Exception:
+        model = data["model"]
+        feature_cols = data["feature_cols"]
+        if not hasattr(model, "predict"):
+            raise TypeError("Loaded ML Router object has no predict() method")
+        if not feature_cols:
+            raise ValueError("ML Router feature_cols is empty")
+        return model, feature_cols
+    except Exception as exc:
+        warnings.warn(f"ML Router could not be loaded: {exc}", RuntimeWarning)
         return None, None
 
-def predict_llm(sql: str, ml_model, feature_cols) -> str:
+def predict_llm(sql: str, ml_model, feature_cols, log_fn=None) -> str:
     if ml_model is not None and feature_cols is not None and PANDAS_OK:
         try:
-            feats = _extract_features(sql)
-            df_f = pd.DataFrame([feats])[feature_cols]
+            df_f = _feature_frame(sql, feature_cols)
             label = int(ml_model.predict(df_f).item())
-            if label == 4:
-                return "openai"
-            return LABEL_TO_LLM.get(label, "openai")
-        except Exception:
-            pass
+            route = "openai" if label == 4 else LABEL_TO_LLM.get(label, "openai")
+            if log_fn:
+                log_fn(f"  ML Router tahmini: label={label} -> {route}")
+            return route
+        except Exception as exc:
+            warnings.warn(f"ML Router prediction failed; regex fallback is used: {exc}", RuntimeWarning)
+            if log_fn:
+                log_fn(f"  ML Router hatasi -> regex fallback: {exc}")
+    elif log_fn:
+        log_fn("  ML Router kullanilamiyor -> regex fallback")
 
     s = sql.upper()
     for p in GPT_P:
@@ -587,7 +623,7 @@ def process_query(
         result["parse_error"] = fast["error"]
         result["track"] = "deep_direct" if fast["error"] == "LLM_NEEDED" else "fast_fallback_deep"
 
-    llm_name = predict_llm(oracle_sql, ml_model, feature_cols)
+    llm_name = predict_llm(oracle_sql, ml_model, feature_cols, log_fn=log_fn)
     log_fn(f"🧭 Smart Router → {llm_name.upper()}")
 
     deep = _deep_track(
